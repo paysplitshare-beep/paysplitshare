@@ -35,6 +35,7 @@ create table if not exists expenses (
   group_id uuid references groups(id) on delete cascade not null,
   title text not null,
   amount numeric(10, 2) not null,
+  category text not null default 'other',
   paid_by uuid references users(id) on delete cascade not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
