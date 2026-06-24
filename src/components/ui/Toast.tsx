@@ -12,7 +12,7 @@ const ICONS = {
 
 function ToastItem({ toast }: { toast: Toast }) {
   const removeToast = useStore((s) => s.removeToast);
-  const timerRef    = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef    = useRef<any>(null);
   const Icon        = ICONS[toast.type];
 
   useEffect(() => {

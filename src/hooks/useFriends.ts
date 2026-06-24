@@ -26,7 +26,7 @@ export function useFriends() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data ?? []) as Friend[];
+      return (data ?? []) as unknown as Friend[];
     },
   });
 }

@@ -77,7 +77,7 @@ export function useGroupMembers(groupId: string) {
         .eq('group_id', groupId)
         .order('joined_at', { ascending: true });
       if (error) throw error;
-      return (data ?? []) as GroupMember[];
+      return (data ?? []) as unknown as GroupMember[];
     },
     enabled: !!groupId,
   });
