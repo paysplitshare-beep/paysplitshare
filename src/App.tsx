@@ -1,52 +1,88 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import MobileLayout from './components/layouts/MobileLayout';
+import { useEffect } from 'react';
+import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
+import { supabase } from './lib/supabase';
+import { useStore } from './store/useStore';
 import Login from './features/auth/Login';
-import Home from './features/home/Home';
-import GroupsList from './features/groups/GroupsList';
-import CreateGroup from './features/groups/CreateGroup';
+import AppShell from './components/layout/AppShell';
+import Dashboard from './features/dashboard/Dashboard';
+import Groups from './features/groups/Groups';
 import GroupDetails from './features/groups/GroupDetails';
-import MemberBalance from './features/groups/MemberBalance';
-import ActivityTimeline from './features/activity/ActivityTimeline';
-import Profile from './features/profile/Profile';
-import AddExpense from './features/expenses/AddExpense';
+import Friends from './features/friends/Friends';
+import Settings from './features/settings/Settings';
+import { Toaster } from './components/ui/Toast';
+import ErrorBoundary from './components/ErrorBoundary';
 
-const queryClient = new QueryClient();
+// ── Auth Guard ───────────────────────────────────────────────
+function ProtectedLayout() {
+  const user          = useStore((s) => s.user);
+  const isAuthLoading = useStore((s) => s.isAuthLoading);
 
-function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
+  if (isAuthLoading) {
+    return (
+      <div className="auth-loading">
+        <div className="auth-loading-spinner" />
+      </div>
+    );
+  }
 
-          {/* Main app with bottom navigation */}
-          <Route element={<MobileLayout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/groups" element={<GroupsList />} />
-            <Route path="/groups/:id" element={<GroupDetails />} />
-            <Route path="/groups/:id/members/:memberId" element={<MemberBalance />} />
-            <Route path="/activity" element={<ActivityTimeline />} />
-            <Route path="/profile" element={<Profile />} />
-          </Route>
-
-          {/* Full-screen flows (no bottom nav) */}
-          <Route path="/groups/create" element={
-            <div className="h-screen w-full max-w-md mx-auto sm:border-x sm:border-border">
-              <CreateGroup />
-            </div>
-          } />
-          <Route path="/add-expense" element={
-            <div className="h-screen w-full max-w-md mx-auto sm:border-x sm:border-border">
-              <AddExpense />
-            </div>
-          } />
-
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
-    </QueryClientProvider>
-  );
+  if (!user) return <Navigate to="/login" replace />;
+  return <Outlet />;
 }
 
-export default App;
+// ── Router ───────────────────────────────────────────────────
+const router = createBrowserRouter([
+  {
+    path: '/login',
+    element: <Login />,
+  },
+  {
+    path: '/',
+    element: <ProtectedLayout />,
+    errorElement: <ErrorBoundary><div /></ErrorBoundary>,
+    children: [
+      {
+        element: <AppShell />,
+        children: [
+          { index: true,              element: <Navigate to="/dashboard" replace /> },
+          { path: 'dashboard',        element: <Dashboard /> },
+          { path: 'groups',           element: <Groups /> },
+          { path: 'groups/:id',       element: <GroupDetails /> },
+          { path: 'friends',          element: <Friends /> },
+          { path: 'settings',         element: <Settings /> },
+        ],
+      },
+    ],
+  },
+  { path: '*', element: <Navigate to="/" replace /> },
+]);
+
+// ── App Root ─────────────────────────────────────────────────
+export default function App() {
+  const setUser       = useStore((s) => s.setUser);
+  const setAuthLoading = useStore((s) => s.setAuthLoading);
+
+  useEffect(() => {
+    // Initial session check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    // Subscribe to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+        setAuthLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, [setUser, setAuthLoading]);
+
+  return (
+    <>
+      <RouterProvider router={router} />
+      <Toaster />
+    </>
+  );
+}
